@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'students',
     'teachers',
+    'accounts',
 ]
 
 MIDDLEWARE = [
@@ -141,3 +142,6 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 }
 # AUTH_USER_MODEL = 'students.CustomUser'
+
+AUTH_USER_MODEL = 'accounts.User'
+
