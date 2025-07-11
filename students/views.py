@@ -3,6 +3,8 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Student
 from .serializers import StudentSerializer
 from accounts.permissions import StudentAccessPermission
+from rest_framework.exceptions import PermissionDenied
+
 
 class StudentListCreateView(generics.ListCreateAPIView):
     serializer_class = StudentSerializer
@@ -17,6 +19,10 @@ class StudentListCreateView(generics.ListCreateAPIView):
         elif user.role == 'student':
             return Student.objects.filter(user=user)
         return Student.objects.none()
+    def post(self, request, *args, **kwargs):
+        if request.user.role != 'admin':
+            raise PermissionDenied("Only admins can create students.")
+        return super().post(request, *args, **kwargs)
 
 class StudentDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Student.objects.all()

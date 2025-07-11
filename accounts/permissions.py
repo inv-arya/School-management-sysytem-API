@@ -10,3 +10,12 @@ class StudentAccessPermission(BasePermission):
         if user.role == 'student':
             return obj.user == user and request.method in SAFE_METHODS
         return False
+        
+class TeacherAccessPermission(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        user = request.user
+        if user.role == 'admin':
+            return True
+        if user.role == 'teacher':
+            return obj.user == user and request.method in SAFE_METHODS
+        return False

@@ -7,7 +7,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'email', 'role', 'password']
         extra_kwargs = {
             'password': {'write_only': True},
-            'role': {'read_only': True}  # prevent role changes via this serializer (optional)
+            
         }
 
     def create(self, validated_data):
