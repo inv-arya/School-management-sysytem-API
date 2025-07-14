@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'students',
     'teachers',
     'accounts',
+    'exams',
 ]
 
 MIDDLEWARE = [
@@ -59,7 +60,7 @@ ROOT_URLCONF = 'SchoolManagementSystem.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / "templates"],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -147,3 +148,10 @@ SIMPLE_JWT = {
 
 AUTH_USER_MODEL = 'accounts.User'
 
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # Use real SMTP, not console or file backend
+EMAIL_HOST = 'smtp.gmail.com'      # SMTP server address (here Gmail's)
+EMAIL_PORT = 587                   # SMTP port for TLS
+EMAIL_USE_TLS = True               # Use TLS encryption
+EMAIL_HOST_USER = 'aaryavs2003@gmail.com'  # Your email address used for sending
+EMAIL_HOST_PASSWORD = 'pwcs uyct sydc imml' # Password or App Password (for Gmail 2FA users)
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER     # Default "from" email for sending

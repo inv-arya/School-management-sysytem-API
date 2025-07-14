@@ -1,9 +1,13 @@
 import csv
+import io
+from rest_framework.response import Response
+from rest_framework import status
 from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated,IsAdminUser
 from .models import Student
+from accounts.models import User
 from .serializers import StudentSerializer
 from accounts.permissions import StudentAccessPermission
 from rest_framework.exceptions import PermissionDenied
@@ -60,3 +64,54 @@ class StudentCSVExportView(APIView):
             ])
 
         return response
+
+class StudentCSVImportView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, *args, **kwargs):
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'CSV file required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        decoded_file = file.read().decode('utf-8')
+        io_string = io.StringIO(decoded_file)
+        reader = csv.DictReader(io_string)
+
+        created_students = 0
+        errors = []
+
+        for i, row in enumerate(reader, start=2):  # start=2 to account for header
+            try:
+                student_data = {
+                    'user': {
+                        'username': row['username'],
+                        'email': row['email'],
+                        'password': row['password'] ,
+                        'role': 'student'  # You can later send a reset link
+                    },
+                    'first_name': row['first_name'],
+                    'last_name': row['last_name'],
+                    'email': row['email'],
+                    'phone_number': row['phone_number'],
+                    'roll_number': row['roll_number'],
+                    'grade': row['grade'],
+                    'date_of_birth': row['date_of_birth'],
+                    'admission_date': row['admission_date'],
+                    'status': row['status'],
+                    'assigned_teacher': None  # or map by name/id if added to CSV
+                }
+
+                serializer = StudentSerializer(data=student_data)
+                if serializer.is_valid():
+                    serializer.save()
+                    created_students += 1
+                else:
+                    errors.append({'line': i, 'error': serializer.errors})
+
+            except Exception as e:
+                errors.append({'line': i, 'error': str(e)})
+
+        return Response({
+            'message': f'{created_students} students imported successfully',
+            'errors': errors
+        }, status=status.HTTP_200_OK)
