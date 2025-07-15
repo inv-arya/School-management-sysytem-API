@@ -1,6 +1,6 @@
 from rest_framework import generics, permissions,status
 from .models import Exam, ExamAttempt
-from .serializers import ExamSerializer,ExamStudentListSerializer,ExamAttemptSerializer
+from .serializers import ExamSerializer,AvailableExamSerializer,ExamAttemptSerializer
 from rest_framework.exceptions import PermissionDenied
 from students.models import Student
 from teachers.models import Teacher
@@ -24,7 +24,7 @@ class ExamCreateView(generics.CreateAPIView):
         serializer.save()   
 
 class AvailableExamListView(generics.ListAPIView):
-    serializer_class = ExamStudentListSerializer
+    serializer_class = AvailableExamSerializer
     permission_classes = [permissions.IsAuthenticated, IsStudent]
 
     def get_queryset(self):

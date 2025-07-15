@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -23,8 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-1bzzl_b=*4q4vz)ahyv4w)*!sp7rknx6=$9la^pegt3&$(gv(r'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
+DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = []
 
 
@@ -141,17 +141,17 @@ REST_FRAMEWORK = {
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 }
-# AUTH_USER_MODEL = 'students.CustomUser'
+
 
 AUTH_USER_MODEL = 'accounts.User'
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # Use real SMTP, not console or file backend
-EMAIL_HOST = 'smtp.gmail.com'      # SMTP server address (here Gmail's)
-EMAIL_PORT = 587                   # SMTP port for TLS
-EMAIL_USE_TLS = True               # Use TLS encryption
-EMAIL_HOST_USER = 'aaryavs2003@gmail.com'  # Your email address used for sending
-EMAIL_HOST_PASSWORD = 'pwcs uyct sydc imml' # Password or App Password (for Gmail 2FA users)
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER     # Default "from" email for sending
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  
+EMAIL_HOST = config('EMAIL_HOST')
+EMAIL_PORT = config('EMAIL_PORT', cast=int)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', cast=bool)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')

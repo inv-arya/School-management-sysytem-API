@@ -53,13 +53,21 @@ class QuestionStudentViewSerializer(serializers.ModelSerializer):
 from rest_framework import serializers
 from exams.models import ExamAttempt
 
-class ExamStudentListSerializer(serializers.ModelSerializer):
-    exam = serializers.CharField(source='exam.title')  # Access nested exam.title
-    student = serializers.CharField(source='student.user.username')  # Access nested student.user.username
 
+
+class AvailableExamSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ExamAttempt
-        fields = ['id', 'exam', 'student', 'attempted_at']
+        model = Exam
+        fields = ['id', 'title', 'created_at']
+
+
+# class ExamStudentListSerializer(serializers.ModelSerializer):
+#     exam = serializers.CharField(source='exam.title')  # Access nested exam.title
+#     student = serializers.CharField(source='student.user.username')  # Access nested student.user.username
+
+#     class Meta:
+#         model = ExamAttempt
+#         fields = ['id', 'exam', 'student', 'attempted_at']
 
 class StudentAnswerSerializer(serializers.Serializer):
     question_id = serializers.IntegerField()

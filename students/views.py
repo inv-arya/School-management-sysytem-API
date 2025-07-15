@@ -27,8 +27,8 @@ class StudentListCreateView(generics.ListCreateAPIView):
             return Student.objects.filter(user=user)
         return Student.objects.none()
     def post(self, request, *args, **kwargs):
-        if request.user.role != 'admin':
-            raise PermissionDenied("Only admins can create students.")
+        if request.user.role not in ['admin', 'teacher']:
+            raise PermissionDenied("Only admins or teachers can create students.")
         return super().post(request, *args, **kwargs)
 
 class StudentDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -80,14 +80,14 @@ class StudentCSVImportView(APIView):
         created_students = 0
         errors = []
 
-        for i, row in enumerate(reader, start=2):  # start=2 to account for header
+        for i, row in enumerate(reader, start=2):  
             try:
                 student_data = {
                     'user': {
                         'username': row['username'],
                         'email': row['email'],
                         'password': row['password'] ,
-                        'role': 'student'  # You can later send a reset link
+                        'role': 'student'  
                     },
                     'first_name': row['first_name'],
                     'last_name': row['last_name'],
@@ -98,7 +98,7 @@ class StudentCSVImportView(APIView):
                     'date_of_birth': row['date_of_birth'],
                     'admission_date': row['admission_date'],
                     'status': row['status'],
-                    'assigned_teacher': None  # or map by name/id if added to CSV
+                    'assigned_teacher': None  
                 }
 
                 serializer = StudentSerializer(data=student_data)

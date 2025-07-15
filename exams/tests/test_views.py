@@ -60,8 +60,10 @@ class ExamViewTests(APITestCase):
         url = reverse('exam-list')
         response = self.student_client.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['title'], 'Math Quiz')
+        print(response.data)
+        self.assertEqual(len(response.data['results']), 1)
+        
+        self.assertEqual(response.data['results'][0]['title'], 'Math Quiz')
 
     def test_student_can_attempt_exam(self):
         exam = Exam.objects.create(title='Biology Test', created_by=self.teacher)
@@ -102,3 +104,24 @@ class ExamViewTests(APITestCase):
         response = self.student_client.post(url, data, format='json')
         self.assertEqual(response.status_code, 400)
         self.assertIn('already attempted', str(response.data).lower())
+
+    def test_student_can_view_only_available_exams(self):
+        # Create multiple exams by the assigned teacher
+            exam1 = Exam.objects.create(title='Physics', created_by=self.teacher)
+            exam2 = Exam.objects.create(title='Chemistry', created_by=self.teacher)
+            exam3 = Exam.objects.create(title='Biology', created_by=self.teacher)
+
+            # Student has already attempted exam1 and exam2
+            ExamAttempt.objects.create(student=self.student, exam=exam1)
+            ExamAttempt.objects.create(student=self.student, exam=exam2)
+
+            url = reverse('exam-list')  # Should be linked to AvailableExamListView
+
+            response = self.student_client.get(url)
+            self.assertEqual(response.status_code, 200)
+
+            # Extract paginated results safely
+            exam_list = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
+            returned_titles = [exam['title'] for exam in exam_list]
+
+            self.assertEqual(returned_titles, ['Biology'])

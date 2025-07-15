@@ -10,7 +10,7 @@ from exams.models import Exam, Question, Option, ExamAttempt
 from exams.serializers import (
     ExamSerializer,
     ExamAttemptSerializer,
-    ExamStudentListSerializer
+    # ExamStudentListSerializer
 )
 
 User = get_user_model()
@@ -98,28 +98,28 @@ class ExamAttemptSerializerTest(TestCase):
         self.assertIn('You have already attempted this exam.', str(context.exception))
 
 
-class ExamStudentListSerializerTest(TestCase):
-    def setUp(self):
-        self.teacher_user = User.objects.create_user(username='teacher', password='pass', role='teacher')
-        self.teacher = Teacher.objects.create(user=self.teacher_user, date_of_joining=date.today())
+# class ExamStudentListSerializerTest(TestCase):
+#     def setUp(self):
+#         self.teacher_user = User.objects.create_user(username='teacher', password='pass', role='teacher')
+#         self.teacher = Teacher.objects.create(user=self.teacher_user, date_of_joining=date.today())
 
-        self.student_user = User.objects.create_user(username='student1', password='pass', role='student')
-        self.student = Student.objects.create(
-            user=self.student_user,
-            assigned_teacher=self.teacher,
-            date_of_birth=date(2006, 1, 1),
-            admission_date=date(2022, 5, 10)
-        )
+#         self.student_user = User.objects.create_user(username='student1', password='pass', role='student')
+#         self.student = Student.objects.create(
+#             user=self.student_user,
+#             assigned_teacher=self.teacher,
+#             date_of_birth=date(2006, 1, 1),
+#             admission_date=date(2022, 5, 10)
+#         )
 
-        self.exam = Exam.objects.create(title='Geography Quiz', created_by=self.teacher)
-        self.attempt = ExamAttempt.objects.create(exam=self.exam, student=self.student)
+#         self.exam = Exam.objects.create(title='Geography Quiz', created_by=self.teacher)
+#         self.attempt = ExamAttempt.objects.create(exam=self.exam, student=self.student)
 
-    def test_exam_student_list_serializer_structure(self):
-        serializer = ExamStudentListSerializer(instance=self.attempt)
-        data = serializer.data
+#     def test_exam_student_list_serializer_structure(self):
+#         serializer = ExamStudentListSerializer(instance=self.attempt)
+#         data = serializer.data
 
-        self.assertIn('id', data)
-        self.assertIn('exam', data)
-        self.assertIn('student', data)
-        self.assertEqual(data['exam'], self.exam.title)
-        self.assertEqual(data['student'], self.student.user.username)
+#         self.assertIn('id', data)
+#         self.assertIn('exam', data)
+#         self.assertIn('student', data)
+#         self.assertEqual(data['exam'], self.exam.title)
+#         self.assertEqual(data['student'], self.student.user.username)

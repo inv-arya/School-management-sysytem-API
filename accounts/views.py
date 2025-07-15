@@ -6,6 +6,8 @@ from rest_framework.permissions import IsAuthenticated
 from .serializers import UserSerializer
 from django.contrib.auth.forms import PasswordResetForm
 from rest_framework import status
+from rest_framework.permissions import AllowAny
+
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
@@ -18,6 +20,8 @@ class MyProfileView(APIView):
 
 
 class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]  
+
     def post(self, request):
         email = request.data.get('email')
         if not email:
