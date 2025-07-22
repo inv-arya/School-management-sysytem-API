@@ -7,6 +7,20 @@ from teachers.models import Teacher
 from rest_framework.response import Response
 
 
+class IsExamOwnerTeacher(permissions.BasePermission):
+
+    def has_object_permission(self, request, view, obj):
+        
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        
+        
+        return (
+            request.user.role == 'teacher' and
+            hasattr(request.user, 'teacher') and
+            obj.created_by == request.user.teacher
+        )
+
 class IsTeacher(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user.role == 'teacher'
@@ -62,5 +76,35 @@ class AttemptExamView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated, IsStudent]
 
     def create(self, request, *args, **kwargs):
-        response = super().create(request, *args, **kwargs)
-        return Response({"message": "Exam submitted successfully!"}, status=status.HTTP_201_CREATED)
+        serializer = self.get_serializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        attempt = serializer.save()
+
+        return Response({
+            "message": "Exam submitted successfully!",
+            "score": attempt.score,
+            "correct_answers": attempt.correct_answers,
+            "total_questions": attempt.total_questions
+        }, status=status.HTTP_201_CREATED)
+
+
+class ExamDetailUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Exam.objects.all()
+    serializer_class = ExamSerializer
+    permission_classes = [permissions.IsAuthenticated, IsExamOwnerTeacher]
+
+    def get_object(self):
+        exam = super().get_object()
+        user = self.request.user
+
+       
+        if user.role == 'student':
+            student = getattr(user, 'student', None)
+            if not student:
+                raise PermissionDenied("Student profile not found.")
+            assigned_teacher = student.assigned_teacher
+            if exam.created_by != assigned_teacher:
+                raise PermissionDenied("You don't have permission to view this exam.")
+        
+        
+        return exam
