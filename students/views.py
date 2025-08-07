@@ -20,9 +20,9 @@ class StudentListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         if user.role == 'admin':
-            return Student.objects.all()
+            return Student.objects.filter(status='active')
         elif user.role == 'teacher':
-            return Student.objects.filter(assigned_teacher__user=user)
+            return Student.objects.filter(assigned_teacher__user=user,status='active')
         elif user.role == 'student':
             return Student.objects.filter(user=user)
         return Student.objects.none()
@@ -106,6 +106,7 @@ class StudentCSVImportView(APIView):
                     serializer.save()
                     created_students += 1
                 else:
+                    print(f"❌ Validation error at line {i}:", serializer.errors)  # <-- Debug print
                     errors.append({'line': i, 'error': serializer.errors})
 
             except Exception as e:
