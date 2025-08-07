@@ -41,21 +41,21 @@ class PasswordResetRequestView(APIView):
             # Always respond with success to prevent email enumeration
             return Response({'message': 'Password reset email sent if email exists.'})
 
-        # ✅ Generate UID and token manually
+        
         uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
 
-        # ✅ Build the reset link pointing to the React frontend
+        
         reset_link = f"http://localhost:5173/reset-password/{uidb64}/{token}/"
 
-        # ✅ Render email template with reset_link
+        
         subject = subject = render_to_string("registration/password_reset_subject.txt").strip()
         message = render_to_string("registration/password_reset_email.html", {
             "user": user,
             "reset_link": reset_link,
         })
 
-        # ✅ Send the email
+        
         send_mail(
             subject,
             message,

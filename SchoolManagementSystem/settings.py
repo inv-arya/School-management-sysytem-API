@@ -44,6 +44,8 @@ INSTALLED_APPS = [
     'teachers',
     'accounts',
     'exams',
+    'chats',
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -144,12 +146,14 @@ REST_FRAMEWORK = {
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 }
 
 
 AUTH_USER_MODEL = 'accounts.User'
+
+ADMIN_EMAIL = 'pemoti9034@aravites.com'
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  
 EMAIL_HOST = config('EMAIL_HOST')
@@ -164,4 +168,15 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  
 ]
 
+
+BACKEND_URL = "http://localhost:8000"
+
 PASSWORD_RESET_TIMEOUT = 900 
+
+ASGI_APPLICATION = "SchoolManagementSystem.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    },
+}
