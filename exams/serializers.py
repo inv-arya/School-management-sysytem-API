@@ -49,7 +49,7 @@ class ExamSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         questions_data = validated_data.pop('questions')
-        teacher = self.context['request'].user.teacher  # get Teacher instance from user
+        teacher = self.context['request'].user.teacher  
         exam = Exam.objects.create(created_by=teacher, **validated_data)
         for question_data in questions_data:
             options_data = question_data.pop('options')
@@ -58,25 +58,7 @@ class ExamSerializer(serializers.ModelSerializer):
                 Option.objects.create(question=question, **option_data)
         return exam
     
-    def update(self, instance, validated_data):
-        questions_data = validated_data.pop('questions', None)
-
-        
-        instance.title = validated_data.get('title', instance.title)
-        instance.duration_minutes = validated_data.get('duration_minutes', instance.duration_minutes)
-        instance.save()
-
-        if questions_data is not None:
-            
-            instance.questions.all().delete()
-
-            for question_data in questions_data:
-                options_data = question_data.pop('options')
-                question = Question.objects.create(exam=instance, **question_data)
-                for option_data in options_data:
-                    Option.objects.create(question=question, **option_data)
-
-        return instance
+    
 
 class OptionStudentViewSerializer(serializers.ModelSerializer):
     class Meta:

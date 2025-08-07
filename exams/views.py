@@ -88,7 +88,7 @@ class AttemptExamView(generics.CreateAPIView):
         }, status=status.HTTP_201_CREATED)
 
 
-class ExamDetailUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
+class ExamDetailDeleteView(generics.RetrieveDestroyAPIView):
     queryset = Exam.objects.all()
     serializer_class = ExamSerializer
     permission_classes = [permissions.IsAuthenticated, IsExamOwnerTeacher]

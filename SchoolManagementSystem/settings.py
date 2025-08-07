@@ -144,7 +144,7 @@ REST_FRAMEWORK = {
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 }
 
@@ -163,3 +163,5 @@ DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  
 ]
+
+PASSWORD_RESET_TIMEOUT = 900 

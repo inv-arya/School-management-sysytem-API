@@ -7,11 +7,13 @@ from .models import Teacher
 from .serializers import TeacherSerializer
 from accounts.permissions import TeacherAccessPermission
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
 
 class TeacherListCreateView(generics.ListCreateAPIView):
-    queryset = Teacher.objects.all()
+    queryset = Teacher.objects.filter(status='active')
     serializer_class = TeacherSerializer
-    permission_classes = [IsAdminUser]  # Only admins can create/list teachers
+    permission_classes = [IsAdminUser]  
 
 class TeacherDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Teacher.objects.all()
@@ -44,3 +46,14 @@ class TeacherCSVExportView(APIView):
             ])
 
         return response
+    
+class MyTeacherProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            teacher = Teacher.objects.get(user=request.user)
+            serializer = TeacherSerializer(teacher)
+            return Response(serializer.data)
+        except Teacher.DoesNotExist:
+            return Response({'error': 'Teacher profile not found.'}, status=404)
