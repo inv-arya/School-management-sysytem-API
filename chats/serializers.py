@@ -4,13 +4,12 @@ from .models import ChatRequest, ChatMessage
 class ChatRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChatRequest
-        fields = '__all__'
+        fields = fields = ['id', 'teacher', 'student', 'status', 'created_at']
 
 class ChatMessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChatMessage
-        fields = '__all__'
-
+        fields = ['id', 'chat_request', 'sender_type', 'message', 'timestamp']
 class ChatRequestCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChatRequest
@@ -33,3 +32,7 @@ class ChatRequestCreateSerializer(serializers.ModelSerializer):
             status=ChatRequest.STATUS_PENDING
         )
         return chat_request
+    
+class ChatStatusSerializer(serializers.Serializer):
+    id = serializers.IntegerField(allow_null=True)
+    status = serializers.IntegerField(allow_null=True)

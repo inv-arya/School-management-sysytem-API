@@ -5,10 +5,11 @@ from .models import ChatRequest, ChatMessage
 from teachers.models import Teacher
 from students.models import Student
 from rest_framework import serializers
-from .serializers import ChatRequestCreateSerializer, ChatMessageSerializer,ChatRequestSerializer
+from .serializers import ChatRequestCreateSerializer, ChatMessageSerializer,ChatRequestSerializer,ChatStatusSerializer
 from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.pagination import PageNumberPagination
 
 class IsAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -48,7 +49,7 @@ class ChatMessageCreateView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         user = self.request.user
-        role = getattr(user, 'role', None)
+        role = getattr(user, 'role', '').upper()
         chat = serializer.validated_data['chat_request']
 
         if chat.status != ChatRequest.STATUS_APPROVED:
@@ -72,24 +73,24 @@ class ChatMessageCreateView(generics.CreateAPIView):
 class ChatMessageListView(generics.ListAPIView):
     serializer_class = ChatMessageSerializer
     permission_classes = [permissions.IsAuthenticated]
-
+    pagination_class=PageNumberPagination
     def get_queryset(self):
         chat_id = self.kwargs.get('chat_id')
         chat = get_object_or_404(ChatRequest, id=chat_id)
 
         user = self.request.user
-        role = getattr(user, 'role', None)
+        role = getattr(user, 'role', None).upper()
         print(role)
 
-        if role == 'teacher':
+        if role == 'TEACHER':
             teacher = get_object_or_404(Teacher, user=user)
             if chat.teacher != teacher:
                raise PermissionDenied("Acesss denied")
-        elif role == 'student':
+        elif role == 'STUDENT':
             student = get_object_or_404(Student, user=user)
             if chat.student != student:
                 raise PermissionDenied("Access denied")
-        elif role != 'admin':
+        elif role != 'ADMIN':
             raise PermissionDenied("Acesss denied")
         return ChatMessage.objects.filter(chat_request=chat).order_by('timestamp')
 
@@ -98,16 +99,40 @@ class ChatRequestCreateView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
-        chat_request = serializer.save()
         
-        # Build approve/cancel URLs for admin email
-        approve_url = f"{settings.BACKEND_URL}/api/chat/requests/approve/{chat_request.approval_token}/"
-        cancel_url = f"{settings.BACKEND_URL}/api/chat/requests/cancel/{chat_request.approval_token}/"
+            chat_request = serializer.save()
+            
+            # Build approve/cancel URLs for admin email
+            approve_url = f"{settings.BACKEND_URL}/api/chat/requests/approve/{chat_request.approval_token}/"
+            cancel_url = f"{settings.BACKEND_URL}/api/chat/requests/cancel/{chat_request.approval_token}/"
 
-        subject = "New Chat Request Pending Approval"
-        message = (
-            f"Teacher {chat_request.teacher} has requested to chat with student {chat_request.student}.\n\n"
-            f"Approve: {approve_url}\n"
-            f"Cancel: {cancel_url}"
-        )
-        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [settings.ADMIN_EMAIL])
+            subject = "New Chat Request Pending Approval"
+            message = (
+                f"Teacher {chat_request.teacher} has requested to chat with student {chat_request.student}.\n\n"
+                f"Approve: {approve_url}\n"
+                f"Cancel: {cancel_url}"
+            )
+            send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [settings.ADMIN_EMAIL])
+        
+class ChatStatusCheckView(generics.RetrieveAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, student_id):
+        try:
+            teacher = get_object_or_404(Teacher, user=request.user)
+            chat_request = ChatRequest.objects.get(teacher=teacher, student_id=student_id)
+            return Response({'id': chat_request.id, 'status': chat_request.status})
+        except ChatRequest.DoesNotExist:
+            return Response({'id': None, 'status': None}, status=200)
+
+class ChatStatusByIdView(generics.RetrieveAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = ChatStatusSerializer
+
+    def get(self, request, chat_id):
+        try:
+            chat_request = ChatRequest.objects.get(id=chat_id)
+            serializer = self.get_serializer({'id': chat_request.id, 'status': chat_request.status})
+            return Response(serializer.data)
+        except ChatRequest.DoesNotExist:
+            return Response({'error': 'Chat request not found'}, status=404)

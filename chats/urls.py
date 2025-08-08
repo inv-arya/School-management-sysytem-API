@@ -7,5 +7,7 @@ urlpatterns = [
     path('requests/cancel/<uuid:token>/', views.ChatRequestCancelView.as_view(), name='cancel_chat'),
     path('send-message/', views.ChatMessageCreateView.as_view(), name='send_message'),
     path('get-messages/<int:chat_id>/', views.ChatMessageListView.as_view(), name='get_messages'),
+    path('check-status/<int:student_id>/', views.ChatStatusCheckView.as_view(), name='check_chat_status'),
+    path('check-status-by-id/<int:chat_id>/', views.ChatStatusByIdView.as_view(), name='check_chat_status_by_id'),
 ]
 
