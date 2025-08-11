@@ -7,6 +7,7 @@ from students.models import Student
 from django.core.exceptions import PermissionDenied
 
 class ChatConsumer(AsyncWebsocketConsumer):
+    print("ChatConsumer initialized")
     async def connect(self):
         self.chat_id = self.scope['url_route']['kwargs']['chat_id']
         self.room_group_name = f'chat_{self.chat_id}'

@@ -11,9 +11,6 @@ from django.conf import settings
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import PageNumberPagination
 
-class IsAdmin(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return getattr(request.user, 'role', '') == 'ADMIN'
 
 class ChatRequestApproveView(generics.UpdateAPIView):
     queryset = ChatRequest.objects.all()
@@ -43,32 +40,7 @@ class ChatRequestCancelView(generics.UpdateAPIView):
         chat.save()
         return Response({'detail': 'Chat cancelled successfully.'})
 
-class ChatMessageCreateView(generics.CreateAPIView):
-    serializer_class = ChatMessageSerializer
-    permission_classes = [permissions.IsAuthenticated]
 
-    def perform_create(self, serializer):
-        user = self.request.user
-        role = getattr(user, 'role', '').upper()
-        chat = serializer.validated_data['chat_request']
-
-        if chat.status != ChatRequest.STATUS_APPROVED:
-            raise serializers.ValidationError("Chat is not approved yet.")
-
-        if role == 'TEACHER':
-            teacher = get_object_or_404(Teacher, user=user)
-            if chat.teacher != teacher:
-                raise permissions.PermissionDenied("Not your chat.")
-            sender_type = ChatMessage.SENDER_TEACHER
-        elif role == 'STUDENT':
-            student = get_object_or_404(Student, user=user)
-            if chat.student != student:
-                raise permissions.PermissionDenied("Not your chat.")
-            sender_type = ChatMessage.SENDER_STUDENT
-        else:
-            raise permissions.PermissionDenied("Invalid user role for messaging.")
-
-        serializer.save(sender_type=sender_type)
 
 class ChatMessageListView(generics.ListAPIView):
     serializer_class = ChatMessageSerializer
@@ -102,9 +74,10 @@ class ChatRequestCreateView(generics.CreateAPIView):
         
             chat_request = serializer.save()
             
-            # Build approve/cancel URLs for admin email
-            approve_url = f"{settings.BACKEND_URL}/api/chat/requests/approve/{chat_request.approval_token}/"
-            cancel_url = f"{settings.BACKEND_URL}/api/chat/requests/cancel/{chat_request.approval_token}/"
+            frontend_base = settings.FRONTEND_URL  
+            approve_url = f"{frontend_base}/chat/approve/{chat_request.approval_token}"
+            cancel_url = f"{frontend_base}/chat/cancel/{chat_request.approval_token}"
+
 
             subject = "New Chat Request Pending Approval"
             message = (
@@ -114,16 +87,51 @@ class ChatRequestCreateView(generics.CreateAPIView):
             )
             send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [settings.ADMIN_EMAIL])
         
+from rest_framework import permissions, generics
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+from teachers.models import Teacher
+from students.models import Student
+from .models import ChatRequest
+
 class ChatStatusCheckView(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, student_id):
-        try:
-            teacher = get_object_or_404(Teacher, user=request.user)
-            chat_request = ChatRequest.objects.get(teacher=teacher, student_id=student_id)
-            return Response({'id': chat_request.id, 'status': chat_request.status})
-        except ChatRequest.DoesNotExist:
-            return Response({'id': None, 'status': None}, status=200)
+        user = request.user
+
+       
+        teacher = Teacher.objects.filter(user=user).first()
+        if teacher:
+           
+            chat_request = ChatRequest.objects.filter(teacher=teacher, student_id=student_id).first()
+            if chat_request:
+                return Response({'id': chat_request.id, 'status': chat_request.status})
+            else:
+                return Response({'id': None, 'status': None}, status=200)
+
+        
+        student = Student.objects.filter(user=user).first()
+        if student:
+            
+            if student.id != student_id:
+                return Response({'detail': 'Forbidden: student can only check their own chat status.'}, status=403)
+
+            
+            assigned_teacher = student.assigned_teacher
+            if not assigned_teacher:
+                return Response({'detail': 'No assigned teacher for this student.'}, status=404)
+
+            
+            chat_request = ChatRequest.objects.filter(teacher=assigned_teacher, student=student).first()
+            if chat_request:
+                return Response({'id': chat_request.id, 'status': chat_request.status})
+            else:
+                return Response({'id': None, 'status': None}, status=200)
+
+        
+        return Response({'detail': 'User is neither a teacher nor a student.'}, status=403)
+
 
 class ChatStatusByIdView(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -132,7 +140,24 @@ class ChatStatusByIdView(generics.RetrieveAPIView):
     def get(self, request, chat_id):
         try:
             chat_request = ChatRequest.objects.get(id=chat_id)
-            serializer = self.get_serializer({'id': chat_request.id, 'status': chat_request.status})
+            serializer = self.get_serializer(chat_request)
             return Response(serializer.data)
         except ChatRequest.DoesNotExist:
             return Response({'error': 'Chat request not found'}, status=404)
+
+class CancelChatRequestsByTeacherView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAdminUser]  # Only admin can do this
+
+    def post(self, request, teacher_id):
+        try:
+            teacher = Teacher.objects.get(id=teacher_id)
+        except Teacher.DoesNotExist:
+            return Response({'detail': 'Teacher not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Cancel all pending chat requests of this teacher
+        chats_to_cancel = ChatRequest.objects.filter(teacher=teacher, status=ChatRequest.STATUS_PENDING)
+        updated_count = chats_to_cancel.update(status=ChatRequest.STATUS_CANCELLED)
+
+        return Response({
+            'detail': f'Successfully cancelled {updated_count} chat request(s) for teacher {teacher_id}.'
+        }, status=status.HTTP_200_OK)
