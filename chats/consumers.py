@@ -7,12 +7,12 @@ from students.models import Student
 from django.core.exceptions import PermissionDenied
 
 class ChatConsumer(AsyncWebsocketConsumer):
-    print("ChatConsumer initialized")
+    
     async def connect(self):
         self.chat_id = self.scope['url_route']['kwargs']['chat_id']
         self.room_group_name = f'chat_{self.chat_id}'
 
-        # Verify user access
+        
         if await self.has_access():
             await self.channel_layer.group_add(
                 self.room_group_name,
@@ -23,6 +23,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.close()
 
     async def disconnect(self, close_code):
+        print(f"Disconnected with code: {close_code}")
         await self.channel_layer.group_discard(
             self.room_group_name,
             self.channel_name
@@ -33,7 +34,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message = text_data_json['message']
         user = self.scope['user']
 
-        # Save message and broadcast
+        
         chat_message = await self.save_message(message, user)
         await self.channel_layer.group_send(
             self.room_group_name,

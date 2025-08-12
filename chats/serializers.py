@@ -2,10 +2,32 @@ from rest_framework import serializers
 from .models import ChatRequest, ChatMessage
 
 class ChatRequestSerializer(serializers.ModelSerializer):
+    teacher_name = serializers.SerializerMethodField()  
+    student_name = serializers.SerializerMethodField()
     class Meta:
         model = ChatRequest
-        fields = fields = ['id', 'teacher', 'student', 'status', 'created_at']
+        fields = [
+            'id',
+            'teacher',
+            'teacher_name',
+            'student',
+            'student_name',
+            'status',
+            'created_at',
+        ]
+    def get_teacher_name(self, obj):
+        print("dfds")
+        teacher = obj.teacher
+        print("Teacher:", teacher)
+        if teacher:
+            return f"{teacher.first_name} {teacher.last_name}".strip()
+        return ""
 
+    def get_student_name(self, obj):
+        student = obj.student
+        if student:
+            return f"{student.first_name} {student.last_name}".strip()
+        return ""
 class ChatMessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChatMessage

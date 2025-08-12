@@ -4,13 +4,12 @@ from django.shortcuts import get_object_or_404
 from .models import ChatRequest, ChatMessage
 from teachers.models import Teacher
 from students.models import Student
-from rest_framework import serializers
+# from rest_framework import serializers
 from .serializers import ChatRequestCreateSerializer, ChatMessageSerializer,ChatRequestSerializer,ChatStatusSerializer
 from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import PageNumberPagination
-
 
 class ChatRequestApproveView(generics.UpdateAPIView):
     queryset = ChatRequest.objects.all()
@@ -87,12 +86,7 @@ class ChatRequestCreateView(generics.CreateAPIView):
             )
             send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [settings.ADMIN_EMAIL])
         
-from rest_framework import permissions, generics
-from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
-from teachers.models import Teacher
-from students.models import Student
-from .models import ChatRequest
+
 
 class ChatStatusCheckView(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -146,7 +140,7 @@ class ChatStatusByIdView(generics.RetrieveAPIView):
             return Response({'error': 'Chat request not found'}, status=404)
 
 class CancelChatRequestsByTeacherView(generics.GenericAPIView):
-    permission_classes = [permissions.IsAdminUser]  # Only admin can do this
+    permission_classes = [permissions.IsAdminUser]  
 
     def post(self, request, teacher_id):
         try:
@@ -154,10 +148,19 @@ class CancelChatRequestsByTeacherView(generics.GenericAPIView):
         except Teacher.DoesNotExist:
             return Response({'detail': 'Teacher not found'}, status=status.HTTP_404_NOT_FOUND)
         
-        # Cancel all pending chat requests of this teacher
-        chats_to_cancel = ChatRequest.objects.filter(teacher=teacher, status=ChatRequest.STATUS_PENDING)
+        
+        chats_to_cancel = ChatRequest.objects.filter(teacher=teacher)
         updated_count = chats_to_cancel.update(status=ChatRequest.STATUS_CANCELLED)
 
         return Response({
             'detail': f'Successfully cancelled {updated_count} chat request(s) for teacher {teacher_id}.'
         }, status=status.HTTP_200_OK)
+
+class ChatRequestDetailView(generics.RetrieveAPIView):
+    
+    serializer_class = ChatRequestSerializer
+    lookup_field = 'approval_token' 
+    lookup_url_kwarg = 'token'
+    permission_classes = []    
+    def get_queryset(self):
+        return ChatRequest.objects.select_related('teacher', 'student').all()
