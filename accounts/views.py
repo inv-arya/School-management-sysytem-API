@@ -38,7 +38,7 @@ class PasswordResetRequestView(APIView):
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-            # Always respond with success to prevent email enumeration
+            
             return Response({'message': 'Password reset email sent if email exists.'})
 
         
