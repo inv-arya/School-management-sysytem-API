@@ -38,7 +38,7 @@ class ChatRequestCreateSerializer(serializers.ModelSerializer):
         fields = ['student']
 
     def validate(self, data):
-        teacher = self.context['request'].user.teacher  # assuming Teacher linked to user
+        teacher = self.context['request'].user.teacher  
         student = data['student']
         print("Checking ChatRequest for:", teacher, student)
         if ChatRequest.objects.filter(teacher=teacher, student=student).exists():
