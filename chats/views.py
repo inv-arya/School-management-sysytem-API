@@ -4,11 +4,10 @@ from django.shortcuts import get_object_or_404
 from .models import ChatRequest, ChatMessage
 from teachers.models import Teacher
 from students.models import Student
-# from rest_framework import serializers
 from .serializers import ChatRequestCreateSerializer, ChatMessageSerializer,ChatRequestSerializer,ChatStatusSerializer
 from django.core.mail import send_mail
 from django.conf import settings
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied,ValidationError
 from rest_framework.pagination import PageNumberPagination
 
 class ChatRequestApproveView(generics.UpdateAPIView):
@@ -164,3 +163,25 @@ class ChatRequestDetailView(generics.RetrieveAPIView):
     permission_classes = []    
     def get_queryset(self):
         return ChatRequest.objects.select_related('teacher', 'student').all()
+
+class CancelChatRequestForStudentView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request, teacher_id, student_id):
+        try:
+            teacher = Teacher.objects.get(id=teacher_id)
+            student = Student.objects.get(id=student_id, assigned_teacher=teacher)
+        except (Teacher.DoesNotExist, Student.DoesNotExist):
+            return Response({'detail': 'Teacher or Student not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        chats_to_cancel = ChatRequest.objects.filter(teacher=teacher, student=student)
+
+        
+        if not chats_to_cancel.exists():
+            raise ValidationError({"detail": "No chat exists between this teacher and student."})
+
+        updated_count = chats_to_cancel.update(status=ChatRequest.STATUS_CANCELLED)
+
+        return Response({
+            'detail': f'Successfully cancelled {updated_count} chat request(s) for student {student_id} under teacher {teacher_id}.'
+        }, status=status.HTTP_200_OK)

@@ -116,3 +116,14 @@ class StudentCSVImportView(APIView):
             'message': f'{created_students} students imported successfully',
             'errors': errors
         }, status=status.HTTP_200_OK)
+    
+class StudentsByTeacherView(generics.ListAPIView):
+    serializer_class = StudentSerializer
+    permission_classes = [IsAdminUser]  
+
+    def get_queryset(self):
+        teacher_id = self.kwargs.get('teacher_id')
+        return Student.objects.filter(
+            assigned_teacher_id=teacher_id,
+            status='active'
+        )

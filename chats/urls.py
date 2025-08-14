@@ -10,6 +10,8 @@ urlpatterns = [
     path('check-status/<int:student_id>/', views.ChatStatusCheckView.as_view(), name='check_chat_status'),
     path('check-status-by-id/<int:chat_id>/', views.ChatStatusByIdView.as_view(), name='check_chat_status_by_id'),
     path('requests/bulk-cancel-by-teacher/<int:teacher_id>/', views.CancelChatRequestsByTeacherView.as_view(), name='bulk_cancel_by_teacher'),
+    path('requests/cancel/<int:teacher_id>/<int:student_id>/', views.CancelChatRequestForStudentView.as_view(), name='cancel-chat-request-student')
+
 ]
 
     
