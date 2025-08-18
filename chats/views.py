@@ -147,7 +147,8 @@ class ChatStatusByIdView(generics.RetrieveAPIView):
 class CancelChatRequestsByTeacherView(generics.GenericAPIView):
     permission_classes = [permissions.IsAdminUser]  
 
-    def post(self, request, teacher_id):
+    def put(self, request, teacher_id):
+        reason = request.data.get("reason", "")
         try:
             teacher = Teacher.objects.get(id=teacher_id)
         except Teacher.DoesNotExist:
@@ -155,7 +156,7 @@ class CancelChatRequestsByTeacherView(generics.GenericAPIView):
         
         
         chats_to_cancel = ChatRequest.objects.filter(teacher=teacher)
-        updated_count = chats_to_cancel.update(status=ChatRequest.STATUS_CANCELLED,cancelled_at=timezone.now())
+        updated_count = chats_to_cancel.update(status=ChatRequest.STATUS_CANCELLED,cancelled_at=timezone.now(),cancellation_reason=reason)
 
         return Response({
             'detail': f'Successfully cancelled {updated_count} chat request(s) for teacher {teacher_id}.'
@@ -172,8 +173,9 @@ class ChatRequestDetailView(generics.RetrieveAPIView):
 
 class CancelChatRequestForStudentView(generics.GenericAPIView):
     permission_classes = [permissions.IsAdminUser]
-
-    def post(self, request, teacher_id, student_id):
+    
+    def put(self, request, teacher_id, student_id):
+        reason = request.data.get("reason", "")
         try:
             teacher = Teacher.objects.get(id=teacher_id)
             student = Student.objects.get(id=student_id, assigned_teacher=teacher)
@@ -186,7 +188,7 @@ class CancelChatRequestForStudentView(generics.GenericAPIView):
         if not chats_to_cancel.exists():
             raise ValidationError({"detail": "No chat exists between this teacher and student."})
 
-        updated_count = chats_to_cancel.update(status=ChatRequest.STATUS_CANCELLED,cancelled_at=timezone.now())
+        updated_count = chats_to_cancel.update(status=ChatRequest.STATUS_CANCELLED,cancelled_at=timezone.now(),cancellation_reason=reason)
 
         return Response({
             'detail': f'Successfully cancelled {updated_count} chat request(s) for student {student_id} under teacher {teacher_id}.'
