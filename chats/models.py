@@ -2,6 +2,7 @@ from django.db import models
 import uuid
 from teachers.models import Teacher
 from students.models import Student
+from django.utils import timezone
 
 class ChatRequest(models.Model):
     STATUS_PENDING = 0
@@ -19,6 +20,21 @@ class ChatRequest(models.Model):
     status = models.IntegerField(choices=STATUS_CHOICES, default=STATUS_PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
     approval_token = models.UUIDField(default=uuid.uuid4, unique=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancellation_reason = models.TextField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        
+        if self.status == self.STATUS_CANCELLED and not self.cancelled_at:
+            self.cancelled_at = timezone.now()
+            print(self.cancelled_at)
+        
+        elif self.status != self.STATUS_CANCELLED and self.cancelled_at:
+            
+            self.cancelled_at = None
+            self.cancellation_reason = None
+
+        super().save(*args, **kwargs)
 
     class Meta:
         unique_together = ('teacher', 'student')

@@ -9,6 +9,8 @@ from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework.exceptions import PermissionDenied,ValidationError
 from rest_framework.pagination import PageNumberPagination
+from django.utils import timezone
+
 
 class ChatRequestApproveView(generics.UpdateAPIView):
     queryset = ChatRequest.objects.all()
@@ -34,7 +36,11 @@ class ChatRequestCancelView(generics.UpdateAPIView):
 
     def update(self, request, *args, **kwargs):
         chat = self.get_object()
+        reason = request.data.get("reason", "")
+        print(reason)
         chat.status = ChatRequest.STATUS_CANCELLED
+        chat.cancelled_at=timezone.now()
+        chat.cancellation_reason = reason
         chat.save()
         return Response({'detail': 'Chat cancelled successfully.'})
 
@@ -149,7 +155,7 @@ class CancelChatRequestsByTeacherView(generics.GenericAPIView):
         
         
         chats_to_cancel = ChatRequest.objects.filter(teacher=teacher)
-        updated_count = chats_to_cancel.update(status=ChatRequest.STATUS_CANCELLED)
+        updated_count = chats_to_cancel.update(status=ChatRequest.STATUS_CANCELLED,cancelled_at=timezone.now())
 
         return Response({
             'detail': f'Successfully cancelled {updated_count} chat request(s) for teacher {teacher_id}.'
@@ -180,7 +186,7 @@ class CancelChatRequestForStudentView(generics.GenericAPIView):
         if not chats_to_cancel.exists():
             raise ValidationError({"detail": "No chat exists between this teacher and student."})
 
-        updated_count = chats_to_cancel.update(status=ChatRequest.STATUS_CANCELLED)
+        updated_count = chats_to_cancel.update(status=ChatRequest.STATUS_CANCELLED,cancelled_at=timezone.now())
 
         return Response({
             'detail': f'Successfully cancelled {updated_count} chat request(s) for student {student_id} under teacher {teacher_id}.'

@@ -154,7 +154,7 @@ SIMPLE_JWT = {
 
 AUTH_USER_MODEL = 'accounts.User'
 
-ADMIN_EMAIL = 'pemoti9034@aravites.com'
+ADMIN_EMAIL = 'vecof90881@colimarl.com'
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  
 EMAIL_HOST = config('EMAIL_HOST')

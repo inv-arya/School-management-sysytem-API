@@ -14,6 +14,8 @@ class ChatRequestSerializer(serializers.ModelSerializer):
             'student_name',
             'status',
             'created_at',
+            'cancelled_at',          
+            'cancellation_reason',
         ]
     def get_teacher_name(self, obj):
         print("dfds")
