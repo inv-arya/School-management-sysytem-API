@@ -97,8 +97,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def get_sender_display(self, user):
+        print("11111111")
         role = getattr(user, 'role', '').upper()
         if role == 'TEACHER':
+            print(user.teacher)
             return f"Teacher: {user.teacher}"
         elif role == 'STUDENT':
             return f"Student: {user.student}"

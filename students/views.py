@@ -106,7 +106,7 @@ class StudentCSVImportView(APIView):
                     serializer.save()
                     created_students += 1
                 else:
-                    print(f"❌ Validation error at line {i}:", serializer.errors)  # <-- Debug print
+                    print(f" Validation error at line {i}:", serializer.errors)  # <-- Debug print
                     errors.append({'line': i, 'error': serializer.errors})
 
             except Exception as e:
