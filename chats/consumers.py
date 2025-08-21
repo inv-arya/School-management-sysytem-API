@@ -2,16 +2,18 @@ import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from .models import ChatRequest, ChatMessage
-from teachers.models import Teacher
-from students.models import Student
 from django.core.exceptions import PermissionDenied
+from django.contrib.auth import get_user_model
 
 class ChatConsumer(AsyncWebsocketConsumer):
     
     async def connect(self):
         self.chat_id = self.scope['url_route']['kwargs']['chat_id']
         self.room_group_name = f'chat_{self.chat_id}'
-
+        user = self.scope['user']
+        if not user.is_authenticated or not user.is_active:
+            await self.close(code=4001)
+            return
         
         if await self.has_access():
             await self.channel_layer.group_add(
@@ -23,18 +25,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.close()
 
     async def disconnect(self, close_code):
-        print(f"Disconnected with code: {close_code}")
+        print(f"Disconnected with code: {close_code}")        
         await self.channel_layer.group_discard(
             self.room_group_name,
             self.channel_name
         )
-
+        
+        
     async def receive(self, text_data):
         text_data_json = json.loads(text_data)
         message = text_data_json['message']
         user = self.scope['user']
-
-        
+        print("111111111111")
+        user=await self._refresh_user(user)
+        print(user.is_active)
+        if not user.is_active:
+            print("222222222")
+            await self.close(code=4001) 
         chat_message = await self.save_message(message, user)
         await self.channel_layer.group_send(
             self.room_group_name,
@@ -96,12 +103,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
     @database_sync_to_async
-    def get_sender_display(self, user):
-        print("11111111")
+    def get_sender_display(self, user):   
         role = getattr(user, 'role', '').upper()
-        if role == 'TEACHER':
-            print(user.teacher)
+        if role == 'TEACHER':           
             return f"Teacher: {user.teacher}"
         elif role == 'STUDENT':
             return f"Student: {user.student}"
         return "Unknown"
+    
+    @database_sync_to_async
+    def _refresh_user(self, user):
+        """Fetch latest user instance from DB to ensure up-to-date status."""
+        
+        User = get_user_model()
+        return User.objects.get(id=user.id)

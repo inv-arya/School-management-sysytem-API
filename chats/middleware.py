@@ -22,10 +22,14 @@ class JWTAuthMiddleware(BaseMiddleware):
         token = query_string.get("token")
         if token:
             try:
-
+                
                 AccessToken(token[0])
                 decoded_data = jwt_decode(token[0], settings.SECRET_KEY, algorithms=["HS256"])
-                scope["user"] = await get_user(decoded_data["user_id"])
+                user = await get_user(decoded_data["user_id"])
+                if not user.is_active:
+                    scope["user"] = AnonymousUser()
+                else:
+                    scope["user"] = user
             except InvalidTokenError:
                 scope["user"] = AnonymousUser()
         else:

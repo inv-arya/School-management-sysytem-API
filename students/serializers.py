@@ -46,7 +46,13 @@ class StudentSerializer(serializers.ModelSerializer):
             user_serializer = UserSerializer(instance=instance.user, data=user_data, partial=True)
             user_serializer.is_valid(raise_exception=True)
             user_serializer.save()
-
+        status = validated_data.get("status", None)
+        if status is not None:
+            if status == "inactive":
+                instance.user.is_active = False
+            else:
+                instance.user.is_active = True
+            instance.user.save()
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()

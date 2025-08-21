@@ -68,7 +68,7 @@ class ChatMessageListView(generics.ListAPIView):
                 raise PermissionDenied("Access denied")
         elif role != 'ADMIN':
             raise PermissionDenied("Acesss denied")
-        return ChatMessage.objects.filter(chat_request=chat).order_by('timestamp')
+        return ChatMessage.objects.filter(chat_request=chat).order_by('-timestamp')
 
 class ChatRequestCreateView(generics.CreateAPIView):
     serializer_class = ChatRequestCreateSerializer
