@@ -7,13 +7,14 @@ from accounts.serializers import UserSerializer
 class StudentSerializer(serializers.ModelSerializer):
     user = UserSerializer()
     assigned_teacher = serializers.PrimaryKeyRelatedField(queryset=Teacher.objects.all(), allow_null=True)
-
+    assigned_teacher_name = serializers.SerializerMethodField(read_only=True)
+    
     class Meta:
         model = Student
         fields = [
             'id', 'user', 'first_name', 'last_name', 'email',
             'phone_number', 'roll_number', 'grade',
-            'date_of_birth', 'admission_date', 'status', 'assigned_teacher'
+            'date_of_birth', 'admission_date', 'status', 'assigned_teacher','assigned_teacher_name'
         ]
 
 
@@ -45,8 +46,18 @@ class StudentSerializer(serializers.ModelSerializer):
             user_serializer = UserSerializer(instance=instance.user, data=user_data, partial=True)
             user_serializer.is_valid(raise_exception=True)
             user_serializer.save()
-
+        status = validated_data.get("status", None)
+        if status is not None:
+            if status == "inactive":
+                instance.user.is_active = False
+            else:
+                instance.user.is_active = True
+            instance.user.save()
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
         return instance
+    def get_assigned_teacher_name(self, obj):
+        if obj.assigned_teacher:
+            return f"{obj.assigned_teacher.first_name} {obj.assigned_teacher.last_name}"
+        return None

@@ -25,12 +25,13 @@ SECRET_KEY = 'django-insecure-1bzzl_b=*4q4vz)ahyv4w)*!sp7rknx6=$9la^pegt3&$(gv(r
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -44,6 +45,8 @@ INSTALLED_APPS = [
     'teachers',
     'accounts',
     'exams',
+    'chats',
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -55,7 +58,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
+   
 ]
 
 ROOT_URLCONF = 'SchoolManagementSystem.urls'
@@ -144,12 +147,14 @@ REST_FRAMEWORK = {
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 }
 
 
 AUTH_USER_MODEL = 'accounts.User'
+
+ADMIN_EMAIL = 'vecof90881@colimarl.com'
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  
 EMAIL_HOST = config('EMAIL_HOST')
@@ -162,6 +167,21 @@ DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  
+    "http://127.0.0.1:5173",
 ]
 
+
+
+FRONTEND_URL = "http://localhost:5173"
+
 PASSWORD_RESET_TIMEOUT = 900 
+
+ASGI_APPLICATION = "SchoolManagementSystem.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    },
+}
+
+
