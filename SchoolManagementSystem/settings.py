@@ -143,6 +143,11 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 5,
+    'DEFAULT_PARSER_CLASSES': (
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.MultiPartParser',  
+        'rest_framework.parsers.FormParser',
+    ),
 }
 
 from datetime import timedelta
@@ -185,4 +190,5 @@ CHANNEL_LAYERS = {
     },
 }
 
-
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
