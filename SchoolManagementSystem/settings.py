@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'exams',
     'chats',
     'channels',
+    'assignment'
 ]
 
 MIDDLEWARE = [
