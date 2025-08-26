@@ -15,6 +15,7 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.contrib.auth.tokens import default_token_generator
 from .models import User
+
 from django.conf import settings
 
 class CustomTokenObtainPairView(TokenObtainPairView):
