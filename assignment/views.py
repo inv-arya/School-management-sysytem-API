@@ -24,7 +24,7 @@ class AssignmentCreateView(APIView):
         
         try:
             deadline = datetime.fromisoformat(data['deadline'])
-            if deadline < datetime.now():
+            if deadline < timezone.now():
                 return Response({"error": "Deadline must be in the future"}, status=status.HTTP_400_BAD_REQUEST)
         except ValueError:
             return Response({"error": "Invalid deadline format"}, status=status.HTTP_400_BAD_REQUEST)
@@ -52,20 +52,37 @@ class AssignmentCreateView(APIView):
 
 class AssignmentListView(APIView):
     permission_classes = [IsAuthenticated]
-
+    
     def get(self, request):
-        if request.user.role != 'teacher':
-            return Response({"error": "Only teachers can view their assignments"}, status=status.HTTP_403_FORBIDDEN)
+        user = request.user
         
-        try:
-            teacher = request.user.teacher
-        except AttributeError:
-            return Response({"error": "User is not associated with a Teacher profile"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        assignments = Assignment.objects.filter(created_by=teacher)
-        serializer = AssignmentSerializer(assignments, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        if user.role == 'teacher':
+            try:
+                teacher = user.teacher
+            except AttributeError:
+                return Response({"error": "User is not associated with a Teacher profile"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            assignments = Assignment.objects.filter(created_by=teacher)
+            serializer = AssignmentSerializer(assignments, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        elif user.role == 'student':
+            try:
+                student = user.student
+            except AttributeError:
+                return Response({"error": "User is not associated with a Student profile"},
+                                status=status.HTTP_400_BAD_REQUEST)
 
+            assignments = Assignment.objects.filter(grade=student.grade)
+
+            subject = request.query_params.get("subject", None)
+            if subject:
+                assignments = assignments.filter(subject__iexact=subject)
+
+            serializer = AssignmentSerializer(assignments, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response({"error": "Only teachers and students can view assignments"},
+                        status=status.HTTP_403_FORBIDDEN)
+    
 class AssignmentDetailView(RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = AssignmentSerializer
@@ -154,3 +171,28 @@ class AssignmentDetailView(RetrieveUpdateDestroyAPIView):
 
         assignment.delete()
         return Response({"message": "Assignment deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+    
+class AssignmentSubjectsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        
+        if user.role != "student":
+            return Response({"error": "Only students can view subjects"},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            student = user.student
+        except AttributeError:
+            return Response({"error": "User is not associated with a Student profile"},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        
+        subjects = Assignment.objects.filter(grade=student.grade) \
+                                     .values_list("subject", flat=True) \
+                                     .distinct()
+
+        return Response({"grade": student.grade, "subjects": list(subjects)},
+                        status=status.HTTP_200_OK)
