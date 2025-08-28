@@ -2,8 +2,10 @@ from django.db import models
 from django.conf import settings
 from teachers.models import Teacher
 from students.models import Student
+from django.utils import timezone
 
 class Assignment(models.Model):
+    
     title = models.CharField(max_length=200)
     description = models.TextField()
     subject = models.CharField(max_length=100)
@@ -19,9 +21,17 @@ class Assignment(models.Model):
         return self.title
 
 class Submission(models.Model):
+     
+    STATUS_CHOICES = (
+        (0, 'Not Submitted'),
+        (1, 'Submitted'),
+        (2, 'Overdue'),
+    )
+    
     assignment = models.ForeignKey(Assignment, on_delete=models.CASCADE, related_name='submissions')
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='submissions')
     submission_files = models.FileField(upload_to='assignments/submissions/%Y/%m/%d/')
+    status = models.IntegerField(choices=STATUS_CHOICES, default=0)
     submitted_at = models.DateTimeField(auto_now_add=True)
     marks = models.FloatField(blank=True, null=True)
 
@@ -29,4 +39,6 @@ class Submission(models.Model):
         unique_together = ('assignment', 'student')
 
     def __str__(self):
-        return f"{self.student} - {self.assignment}"
+        return f"{self.student} - {self.assignment} - {self.get_status_display()}"
+    
+    

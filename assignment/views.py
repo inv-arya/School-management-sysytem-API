@@ -4,8 +4,9 @@ from rest_framework.generics import RetrieveUpdateDestroyAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Assignment
-from .serializers import AssignmentSerializer
+from .models import Assignment,Submission
+from students.models import Student
+from .serializers import AssignmentSerializer,StudentAssignmentSerializer,SubmissionSerializer
 from datetime import datetime
 from django.utils import timezone
 
@@ -46,7 +47,14 @@ class AssignmentCreateView(APIView):
         
         serializer = AssignmentSerializer(data=data)
         if serializer.is_valid():
-            serializer.save(created_by=user.teacher)
+            assignment=serializer.save(created_by=user.teacher)
+            students = Student.objects.filter(grade=assignment.grade)
+            for student in students:
+                Submission.objects.get_or_create(
+                    student=student,
+                    assignment=assignment,
+                    defaults={'status': 0}
+                )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -78,7 +86,7 @@ class AssignmentListView(APIView):
             if subject:
                 assignments = assignments.filter(subject__iexact=subject)
 
-            serializer = AssignmentSerializer(assignments, many=True)
+            serializer = StudentAssignmentSerializer(assignments, many=True, context={'student': student})
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response({"error": "Only teachers and students can view assignments"},
                         status=status.HTTP_403_FORBIDDEN)
@@ -95,9 +103,9 @@ class AssignmentDetailView(RetrieveUpdateDestroyAPIView):
             return None
         
         
-        if self.request.user.role != 'teacher':
+        if self.request.user.role != 'student':
             return None
-        if assignment.created_by != self.request.user.teacher:
+        if assignment.grade != self.request.user.student.grade:
             return None
         return assignment
 
@@ -196,3 +204,84 @@ class AssignmentSubjectsView(APIView):
 
         return Response({"grade": student.grade, "subjects": list(subjects)},
                         status=status.HTTP_200_OK)
+
+class SubmissionUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request):
+        if request.user.role != 'student':
+            return Response({"error": "Only students can submit assignments"}, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            student = request.user.student
+        except AttributeError:
+            return Response({"error": "User is not associated with a Student profile"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        assignment_id = request.data.get('assignment_id')
+        if not assignment_id:
+            return Response({"error": "assignment_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            assignment = Assignment.objects.get(id=assignment_id)
+        except Assignment.DoesNotExist:
+            return Response({"error": "Assignment not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        if assignment.grade != student.grade:
+            return Response({"error": "Assignment does not belong to student's grade"}, status=status.HTTP_403_FORBIDDEN)
+        
+        if assignment.deadline < timezone.now():
+            return Response({"error": "Assignment deadline has passed"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if 'submission_file' not in request.FILES:
+            return Response({"error": "submission_file is required"}, status=status.HTTP_600_BAD_REQUEST)
+        
+        file = request.FILES['submission_file']
+        mime = magic.Magic(mime=True)
+        file_type = mime.from_buffer(file.read())
+        allowed_types = [
+            'application/pdf',
+            'image/jpeg', 'image/png',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'application/vnd.ms-powerpoint',
+        ]
+        if file_type not in allowed_types:
+            return Response({"error": f"Invalid file type: {file_type}"}, status=status.HTTP_400_BAD_REQUEST)
+        file.seek(0)
+        
+        try:
+            submission = Submission.objects.get(student=student, assignment=assignment)
+        except Submission.DoesNotExist:
+            return Response({"error": "Submission not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        submission.submission_files = file
+        submission.submitted_at = timezone.now()
+        submission.status = 1  
+        submission.save()
+        
+        serializer = SubmissionSerializer(submission)
+        return Response(serializer.data, status=status.HTTP_200_OK)    
+
+
+class TeacherAssignmentSubmissionsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        if request.user.role != 'teacher':
+            return Response({"error": "Only teachers can view assignment submissions"}, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            teacher = request.user.teacher
+        except AttributeError:
+            return Response({"error": "User is not associated with a Teacher profile"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            assignment = Assignment.objects.get(id=pk)
+        except Assignment.DoesNotExist:
+            return Response({"error": "Assignment not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        if assignment.created_by != teacher:
+            return Response({"error": "Not authorized to view submissions for this assignment"}, status=status.HTTP_403_FORBIDDEN)
+        
+        submissions = Submission.objects.filter(assignment=assignment, status=1)
+        serializer = SubmissionSerializer(submissions, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
