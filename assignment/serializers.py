@@ -43,18 +43,27 @@ class StudentAssignmentSerializer(serializers.ModelSerializer):
         return submission.get_status_display()
 
 class SubmissionSerializer(serializers.ModelSerializer):
-    assignment = AssignmentSerializer(read_only=True)
+    student_name = serializers.SerializerMethodField()
     status_display = serializers.CharField(source='get_status_display', read_only=True)
-    student_name = serializers.CharField(source='student.get_full_name', read_only=True)
+
     class Meta:
         model = Submission
-        fields = ['id', 'assignment', 'student_name','submission_files', 'submitted_at', 'status', 'status_display', 'submitted_at']
-        read_only_fields = ['id', 'student', 'assignment', 'status_display']
+        fields = ['id', 'student_name', 'submission_files', 'submitted_at', 'status', 'status_display','marks']
+        read_only_fields = ['id', 'student_name', 'status', 'status_display', 'submitted_at']
+
+    def get_student_name(self, obj):
+        if obj.student:
+            return f"{obj.student.first_name} {obj.student.last_name}"
+        return "Unknown Student"
 
 class OverdueSubmissionSerializer(serializers.ModelSerializer):
-    student = serializers.StringRelatedField()
-    assignment = serializers.StringRelatedField()
+    student_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Submission
-        fields = ['id', 'student', 'assignment', 'status', 'created_at', 'updated_at']  
+        fields = ['student_name']
+
+    def get_student_name(self, obj):
+        if obj.student:
+            return f"{obj.student.first_name} {obj.student.last_name}"
+        return "Unknown Student"

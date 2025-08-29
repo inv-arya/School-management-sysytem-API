@@ -1,14 +1,19 @@
 import magic
 from rest_framework.views import APIView
 from rest_framework.generics import RetrieveUpdateDestroyAPIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated,IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Assignment,Submission
 from students.models import Student
-from .serializers import AssignmentSerializer,StudentAssignmentSerializer,SubmissionSerializer
+from .serializers import AssignmentSerializer,StudentAssignmentSerializer,SubmissionSerializer, OverdueSubmissionSerializer
 from datetime import datetime
 from django.utils import timezone
+from openpyxl import Workbook
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from django.http import HttpResponse
+from io import BytesIO
 
 class AssignmentCreateView(APIView):
     permission_classes = [IsAuthenticated]
@@ -88,8 +93,11 @@ class AssignmentListView(APIView):
 
             serializer = StudentAssignmentSerializer(assignments, many=True, context={'student': student})
             return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response({"error": "Only teachers and students can view assignments"},
-                        status=status.HTTP_403_FORBIDDEN)
+        else:
+            assignments = Assignment.objects.all()
+            serializer = AssignmentSerializer(assignments, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
     
 class AssignmentDetailView(RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
@@ -101,12 +109,10 @@ class AssignmentDetailView(RetrieveUpdateDestroyAPIView):
             assignment = Assignment.objects.get(pk=self.kwargs['pk'])
         except Assignment.DoesNotExist:
             return None
-        
-        
-        if self.request.user.role != 'student':
-            return None
-        if assignment.grade != self.request.user.student.grade:
-            return None
+         
+        if self.request.user.role == 'student':
+            if assignment.grade != self.request.user.student.grade:
+                return None
         return assignment
 
     def validate_request(self, data, files):
@@ -209,57 +215,95 @@ class SubmissionUpdateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def put(self, request):
-        if request.user.role != 'student':
-            return Response({"error": "Only students can submit assignments"}, status=status.HTTP_403_FORBIDDEN)
-        
-        try:
-            student = request.user.student
-        except AttributeError:
-            return Response({"error": "User is not associated with a Student profile"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        assignment_id = request.data.get('assignment_id')
-        if not assignment_id:
-            return Response({"error": "assignment_id is required"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        try:
-            assignment = Assignment.objects.get(id=assignment_id)
-        except Assignment.DoesNotExist:
-            return Response({"error": "Assignment not found"}, status=status.HTTP_404_NOT_FOUND)
-        
-        if assignment.grade != student.grade:
-            return Response({"error": "Assignment does not belong to student's grade"}, status=status.HTTP_403_FORBIDDEN)
-        
-        if assignment.deadline < timezone.now():
-            return Response({"error": "Assignment deadline has passed"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        if 'submission_file' not in request.FILES:
-            return Response({"error": "submission_file is required"}, status=status.HTTP_600_BAD_REQUEST)
-        
-        file = request.FILES['submission_file']
-        mime = magic.Magic(mime=True)
-        file_type = mime.from_buffer(file.read())
-        allowed_types = [
-            'application/pdf',
-            'image/jpeg', 'image/png',
-            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            'application/vnd.ms-powerpoint',
-        ]
-        if file_type not in allowed_types:
-            return Response({"error": f"Invalid file type: {file_type}"}, status=status.HTTP_400_BAD_REQUEST)
-        file.seek(0)
-        
-        try:
-            submission = Submission.objects.get(student=student, assignment=assignment)
-        except Submission.DoesNotExist:
-            return Response({"error": "Submission not found"}, status=status.HTTP_404_NOT_FOUND)
-        
-        submission.submission_files = file
-        submission.submitted_at = timezone.now()
-        submission.status = 1  
-        submission.save()
-        
-        serializer = SubmissionSerializer(submission)
-        return Response(serializer.data, status=status.HTTP_200_OK)    
+        if request.user.role not in ['student', 'teacher']:
+            return Response({"error": "Only students or teachers can update submissions"}, status=status.HTTP_403_FORBIDDEN)
+
+        if request.user.role == 'student':
+            
+            try:
+                student = request.user.student
+            except AttributeError:
+                return Response({"error": "User is not associated with a Student profile"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            assignment_id = request.data.get('assignment_id')
+            if not assignment_id:
+                return Response({"error": "assignment_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            try:
+                assignment = Assignment.objects.get(id=assignment_id)
+            except Assignment.DoesNotExist:
+                return Response({"error": "Assignment not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+            if assignment.grade != student.grade:
+                return Response({"error": "Assignment does not belong to student's grade"}, status=status.HTTP_403_FORBIDDEN)
+            
+            if assignment.deadline < timezone.now():
+                return Response({"error": "Assignment deadline has passed"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            if 'submission_file' not in request.FILES:
+                return Response({"error": "submission_file is required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            file = request.FILES['submission_file']
+            mime = magic.Magic(mime=True)
+            file_type = mime.from_buffer(file.read())
+            allowed_types = [
+                'application/pdf',
+                'image/jpeg', 'image/png',
+                'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                'application/vnd.ms-powerpoint',
+            ]
+            if file_type not in allowed_types:
+                return Response({"error": f"Invalid file type: {file_type}"}, status=status.HTTP_400_BAD_REQUEST)
+            file.seek(0)
+            
+            try:
+                submission = Submission.objects.get(student=student, assignment=assignment)
+            except Submission.DoesNotExist:
+                return Response({"error": "Submission not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+            submission.submission_files = file
+            submission.submitted_at = timezone.now()
+            submission.status = 1
+            submission.save()
+            
+            serializer = SubmissionSerializer(submission)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        else:  
+            
+            try:
+                teacher = request.user.teacher
+            except AttributeError:
+                return Response({"error": "User is not associated with a Teacher profile"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            submission_id = request.data.get('submission_id')
+            if not submission_id:
+                return Response({"error": "submission_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            try:
+                submission = Submission.objects.get(id=submission_id)
+            except Submission.DoesNotExist:
+                return Response({"error": "Submission not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+            if submission.assignment.created_by != teacher:
+                return Response({"error": "Not authorized to update marks for this submission"}, status=status.HTTP_403_FORBIDDEN)
+            
+            marks = request.data.get('marks')
+            if marks is None:
+                return Response({"error": "marks is required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            try:
+                marks = float(marks)
+                if marks < 0 or marks > submission.assignment.max_marks:
+                    return Response({"error": f"Marks must be between 0 and {submission.assignment.max_marks}"}, status=status.HTTP_400_BAD_REQUEST)
+            except (ValueError, TypeError):
+                return Response({"error": "Invalid marks value"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            submission.marks = marks
+            submission.save()
+            
+            serializer = SubmissionSerializer(submission)
+            return Response(serializer.data, status=status.HTTP_200_OK)   
 
 
 class TeacherAssignmentSubmissionsView(APIView):
@@ -285,3 +329,92 @@ class TeacherAssignmentSubmissionsView(APIView):
         submissions = Submission.objects.filter(assignment=assignment, status=1)
         serializer = SubmissionSerializer(submissions, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+class SubmissionDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, assignment_id):
+        if request.user.role != 'student':
+            return Response({"error": "Only students can view submission details"}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            student = request.user.student
+        except AttributeError:
+            return Response({"error": "User is not associated with a Student profile"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            submission = Submission.objects.get(student=student, assignment_id=assignment_id)
+        except Submission.DoesNotExist:
+            return Response({"error": "Submission not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = SubmissionSerializer(submission)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class OverdueSubmissionListView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, assignment_id):
+        try:
+            assignment = Assignment.objects.get(id=assignment_id)
+        except Assignment.DoesNotExist:
+            return Response({"error": "Assignment not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        overdue_submissions = Submission.objects.filter(assignment_id=assignment_id, status=2).select_related('student')
+        serializer = OverdueSubmissionSerializer(overdue_submissions, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class OverdueSubmissionExportView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, assignment_id):
+        format_type = request.query_params.get('format', 'excel').lower()
+        if format_type not in ['excel', 'pdf']:
+            return Response({"error": "Invalid format. Use 'excel' or 'pdf'"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            assignment = Assignment.objects.get(id=assignment_id)
+        except Assignment.DoesNotExist:
+            return Response({"error": "Assignment not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        overdue_submissions = Submission.objects.filter(assignment_id=assignment_id, status=2).select_related('student')
+        student_names = [submission.student.get_full_name() if submission.student else "Unknown Student" for submission in overdue_submissions]
+
+        if not student_names:
+            return Response({"error": "No overdue submissions found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if format_type == 'excel':
+            wb = Workbook()
+            ws = wb.active
+            ws.title = f"Overdue Submissions - Assignment {assignment_id}"
+            ws.append(["Student Name"])
+            for name in student_names:
+                ws.append([name])
+
+            buffer = BytesIO()
+            wb.save(buffer)
+            buffer.seek(0)
+            response = HttpResponse(
+                buffer,
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = f'attachment; filename=overdue_submissions_{assignment_id}.xlsx'
+            return response
+
+        else:  
+            buffer = BytesIO()
+            c = canvas.Canvas(buffer, pagesize=letter)
+            c.setFont("Helvetica", 12)
+            c.drawString(100, 750, f"Overdue Submissions for Assignment: {assignment.title}")
+            y = 700
+            for name in student_names:
+                c.drawString(100, y, name)
+                y -= 20
+                if y < 50:
+                    c.showPage()
+                    y = 750
+            c.save()
+            buffer.seek(0)
+            response = HttpResponse(buffer, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename=overdue_submissions_{assignment_id}.pdf'
+            return response
