@@ -368,7 +368,9 @@ class OverdueSubmissionExportView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request, assignment_id):
-        format_type = request.query_params.get('format', 'excel').lower()
+        print("111111111111")
+        format_type = request.query_params.get('formats', 'excel').lower()
+        print(format_type)
         if format_type not in ['excel', 'pdf']:
             return Response({"error": "Invalid format. Use 'excel' or 'pdf'"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -378,9 +380,12 @@ class OverdueSubmissionExportView(APIView):
             return Response({"error": "Assignment not found"}, status=status.HTTP_404_NOT_FOUND)
 
         overdue_submissions = Submission.objects.filter(assignment_id=assignment_id, status=2).select_related('student')
-        student_names = [submission.student.get_full_name() if submission.student else "Unknown Student" for submission in overdue_submissions]
+        serializer = OverdueSubmissionSerializer(overdue_submissions, many=True)
+        data = serializer.data
 
-        if not student_names:
+        print(data)
+        if not data:
+            print("No overdue submissions found")
             return Response({"error": "No overdue submissions found"}, status=status.HTTP_404_NOT_FOUND)
 
         if format_type == 'excel':
@@ -388,8 +393,8 @@ class OverdueSubmissionExportView(APIView):
             ws = wb.active
             ws.title = f"Overdue Submissions - Assignment {assignment_id}"
             ws.append(["Student Name"])
-            for name in student_names:
-                ws.append([name])
+            for submission in data:
+                ws.append([submission['student_name']])
 
             buffer = BytesIO()
             wb.save(buffer)
@@ -407,8 +412,8 @@ class OverdueSubmissionExportView(APIView):
             c.setFont("Helvetica", 12)
             c.drawString(100, 750, f"Overdue Submissions for Assignment: {assignment.title}")
             y = 700
-            for name in student_names:
-                c.drawString(100, y, name)
+            for  submission in data:
+                c.drawString(100, y, submission['student_name'])
                 y -= 20
                 if y < 50:
                     c.showPage()
@@ -418,3 +423,7 @@ class OverdueSubmissionExportView(APIView):
             response = HttpResponse(buffer, content_type='application/pdf')
             response['Content-Disposition'] = f'attachment; filename=overdue_submissions_{assignment_id}.pdf'
             return response
+        
+
+
+        
