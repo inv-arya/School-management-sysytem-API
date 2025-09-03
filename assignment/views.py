@@ -14,6 +14,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from django.http import HttpResponse
 from io import BytesIO
+from rest_framework.pagination import PageNumberPagination
 
 class AssignmentCreateView(APIView):
     permission_classes = [IsAuthenticated]
@@ -68,7 +69,13 @@ class AssignmentListView(APIView):
     
     def get(self, request):
         user = request.user
-        
+        paginator = PageNumberPagination()
+        paginator.page_size = 5
+
+        sort_by = request.query_params.get('sort_by', None)
+        order = request.query_params.get('order', 'desc')  
+        sort_field = None
+
         if user.role == 'teacher':
             try:
                 teacher = user.teacher
@@ -76,8 +83,8 @@ class AssignmentListView(APIView):
                 return Response({"error": "User is not associated with a Teacher profile"}, status=status.HTTP_400_BAD_REQUEST)
             
             assignments = Assignment.objects.filter(created_by=teacher)
-            serializer = AssignmentSerializer(assignments, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            serializer_class = AssignmentSerializer
+            
         elif user.role == 'student':
             try:
                 student = user.student
@@ -91,12 +98,46 @@ class AssignmentListView(APIView):
             if subject:
                 assignments = assignments.filter(subject__iexact=subject)
 
-            serializer = StudentAssignmentSerializer(assignments, many=True, context={'student': student})
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            serializer_class = StudentAssignmentSerializer   
+            serializer_context = {"student": student}  
+            if sort_by == 'deadline':
+                sort_field = 'deadline'
+            elif sort_by == 'status':
+                
+                assignments_with_status = []
+                for assignment in assignments:
+                    submission, _ = Submission.objects.get_or_create(
+                        student=student,
+                        assignment=assignment,
+                        defaults={'status': 0}
+                    )
+                    if submission.status != 1 and assignment.deadline < timezone.now():
+                        submission.status = 2
+                        submission.save()
+                    assignments_with_status.append({
+                        'assignment': assignment,
+                        'status': submission.status
+                    })
+                
+                assignments_with_status.sort(
+                    key=lambda x: x['status'],
+                    reverse=(order == 'desc')
+                )
+                assignments = [item['assignment'] for item in assignments_with_status]    
+            
         else:
             assignments = Assignment.objects.all()
-            serializer = AssignmentSerializer(assignments, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            serializer_class = AssignmentSerializer
+            serializer_context = {}
+
+        if sort_field:
+            order_prefix = '-' if order == 'desc' else ''
+            assignments = assignments.order_by(f"{order_prefix}{sort_field}")
+            
+        page = paginator.paginate_queryset(assignments, request)
+        serializer = serializer_class(page, many=True, context=locals())
+
+        return paginator.get_paginated_response(serializer.data)   
         
     
 class AssignmentDetailView(RetrieveUpdateDestroyAPIView):
@@ -207,9 +248,11 @@ class AssignmentSubjectsView(APIView):
         subjects = Assignment.objects.filter(grade=student.grade) \
                                      .values_list("subject", flat=True) \
                                      .distinct()
+        paginator = PageNumberPagination()
+        paginator.page_size = 5 
+        result_page = paginator.paginate_queryset(list(subjects), request)
 
-        return Response({"grade": student.grade, "subjects": list(subjects)},
-                        status=status.HTTP_200_OK)
+        return paginator.get_paginated_response(result_page)
 
 class SubmissionUpdateView(APIView):
     permission_classes = [IsAuthenticated]
@@ -327,8 +370,12 @@ class TeacherAssignmentSubmissionsView(APIView):
             return Response({"error": "Not authorized to view submissions for this assignment"}, status=status.HTTP_403_FORBIDDEN)
         
         submissions = Submission.objects.filter(assignment=assignment, status=1)
-        serializer = SubmissionSerializer(submissions, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        paginator = PageNumberPagination()
+        paginator.page_size = 5   
+        result_page = paginator.paginate_queryset(submissions, request)
+
+        serializer = SubmissionSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
 class SubmissionDetailView(APIView):
     permission_classes = [IsAuthenticated]
@@ -355,13 +402,22 @@ class OverdueSubmissionListView(APIView):
 
     def get(self, request, assignment_id):
         try:
-            assignment = Assignment.objects.get(id=assignment_id)
+            assignment = Assignment.objects.get(id=assignment_id , deadline__lt=timezone.now())
         except Assignment.DoesNotExist:
             return Response({"error": "Assignment not found"}, status=status.HTTP_404_NOT_FOUND)
 
+        Submission.objects.filter(
+            assignment_id=assignment_id,
+            status=0
+        ).update(status=2)  
+
         overdue_submissions = Submission.objects.filter(assignment_id=assignment_id, status=2).select_related('student')
-        serializer = OverdueSubmissionSerializer(overdue_submissions, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+
+        paginator = PageNumberPagination()
+        paginator.page_size = 5   
+        result_page = paginator.paginate_queryset(overdue_submissions, request)
+        serializer = OverdueSubmissionSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
 
 class OverdueSubmissionExportView(APIView):
