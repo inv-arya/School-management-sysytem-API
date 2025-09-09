@@ -223,7 +223,8 @@ class AssignmentDetailView(RetrieveUpdateDestroyAPIView):
         assignment = self.get_object()
         if not assignment:
             return Response({"error": "Not authorized or Assignment not found"}, status=status.HTTP_404_NOT_FOUND)
-
+        if assignment.deadline < timezone.now():
+            return Response({"error": "Assignment deadline has passed. Deleting is not allowed."}, status=status.HTTP_400_BAD_REQUEST)
         assignment.delete()
         return Response({"message": "Assignment deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
     
