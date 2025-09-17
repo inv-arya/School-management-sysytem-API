@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'exams',
     'chats',
     'channels',
+    'assignment'
 ]
 
 MIDDLEWARE = [
@@ -142,6 +143,11 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 5,
+    'DEFAULT_PARSER_CLASSES': (
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.MultiPartParser',  
+        'rest_framework.parsers.FormParser',
+    ),
 }
 
 from datetime import timedelta
@@ -154,7 +160,7 @@ SIMPLE_JWT = {
 
 AUTH_USER_MODEL = 'accounts.User'
 
-ADMIN_EMAIL = 'vecof90881@colimarl.com'
+ADMIN_EMAIL = 'mawaw58572@skateru.com'
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  
 EMAIL_HOST = config('EMAIL_HOST')
@@ -184,4 +190,6 @@ CHANNEL_LAYERS = {
     },
 }
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
