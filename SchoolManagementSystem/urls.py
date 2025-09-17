@@ -29,4 +29,5 @@ urlpatterns = [
     path('api/exams/', include('exams.urls')),
     path('api/chat/', include('chats.urls')),
     path('api/assignments/', include('assignment.urls')),
+    path('api/fee/',include('fee_management.urls'))
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

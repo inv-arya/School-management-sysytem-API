@@ -1,8 +1,15 @@
-asgiref==3.9.1
+channels==4.3.1
+daphne==4.2.1
 Django==5.2.4
 django-cors-headers==4.7.0
 djangorestframework==3.16.0
 djangorestframework_simplejwt==5.5.0
+openpyxl==3.1.5
+pdfkit==1.0.0
+pillow==11.3.0
 PyJWT==2.9.0
 python-decouple==3.8
-sqlparse==0.5.3
+python-magic==0.4.27
+razorpay==1.4.2
+reportlab==4.4.3
+

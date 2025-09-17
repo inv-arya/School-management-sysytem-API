@@ -47,7 +47,8 @@ INSTALLED_APPS = [
     'exams',
     'chats',
     'channels',
-    'assignment'
+    'assignment',
+    'fee_management',
 ]
 
 MIDDLEWARE = [
@@ -193,3 +194,5 @@ CHANNEL_LAYERS = {
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+RAZORPAY_KEY_ID = config("RAZORPAY_KEY_ID")
+RAZORPAY_KEY_SECRET = config("RAZORPAY_KEY_SECRET")
