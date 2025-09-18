@@ -1,15 +1,13 @@
 from django.db import models, transaction
-from django.conf import settings
 from students.models import Student
 from django.utils import timezone
 import uuid
 import logging
-import razorpay
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
 
-# Initialize Razorpay client
-razorpay_client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+
+
 
 logger = logging.getLogger('fee_management')
 
