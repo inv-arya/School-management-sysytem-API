@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Payment Receipt</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .details { margin: 20px 0; }
+        .amount { font-size: 24px; font-weight: bold; text-align: center; margin: 20px 0; }
+        .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>PAYMENT RECEIPT</h2>
+        <h3>Receipt #{{ payment.transaction_id|slice:":8"|upper }}</h3>
+    </div>
+    
+    <div class="details">
+        <h3>Student Information:</h3>
+        <p><strong>Name:</strong> {{ payment.student.first_name }} {{ payment.student.last_name }}</p>
+        <p><strong>Roll Number:</strong> {{ payment.student.roll_number }}</p>
+        <p><strong>Grade:</strong> {{ payment.fee_structure.grade }}</p>
+        <p><strong>Academic Year:</strong> {{ payment.fee_structure.academic_year }}</p>
+        
+        <h3>Payment Information:</h3>
+        <p><strong>Date:</strong> {{ payment.payment_date|date:"F d, Y" }}</p>
+        <p><strong>Time:</strong> {{ payment.payment_date|time:"H:i A" }}</p>
+        <p><strong>Payment ID:</strong> {{ payment.razorpay_payment_id }}</p>
+        <p><strong>Transaction ID:</strong> {{ payment.transaction_id }}</p>
+    </div>
+    
+    <div class="amount">
+        <p>TOTAL AMOUNT PAID</p>
+        <h1>₹{{ payment.total_amount }}</h1>
+    </div>
+    
+    <div class="footer">
+        <p>This is a computer-generated receipt.</p>
+        <p>For queries, contact school administration.</p>
+        <p>Thank you for your payment!</p>
+    </div>
+</body>
+</html>

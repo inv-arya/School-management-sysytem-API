@@ -2,27 +2,20 @@ from django.shortcuts import render
 from rest_framework import generics , status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser,IsAuthenticated
-from rest_framework.exceptions import ValidationError
 from django.db import transaction
-from .models import FeeStructure,FeePayment,TransactionLog
-from .serializers import FeeStructureSerializer
+from django.utils import timezone
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.core.files.base import ContentFile
 from django.conf import settings
-import razorpay
+from .models import FeePayment,TransactionLog
+from .serializers import FeeStructureSerializer,PaymentCallbackSerializer
+from .utils import get_razorpay_client
+import pdfkit
 import logging
 
 logger = logging.getLogger('fee_management')
 
-def get_razorpay_client():
-    """Initialize Razorpay client on-demand in views"""
-    try:
-        if not settings.RAZORPAY_KEY_ID or not settings.RAZORPAY_KEY_SECRET:
-            raise ValueError("Razorpay API keys not configured")
-        
-        client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
-        return client
-    except Exception as e:
-        logger.error(f"Razorpay client initialization failed: {str(e)}")
-        raise ValidationError(f"Payment service unavailable: {str(e)}")
 
 #fee structure creation view
 
@@ -94,3 +87,52 @@ class InitiatePaymentView(generics.GenericAPIView):
                 {'error': 'Payment service temporarily unavailable'}, 
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
+        
+class PaymentCallbackView(generics.GenericAPIView):
+    permission_classes = []  
+    
+    serializer_class = PaymentCallbackSerializer
+
+    def post(self, request):
+        logger.info(f"Payment callback received: {request.data}")
+        
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        
+        payment = serializer.context['payment']
+        
+        with transaction.atomic():
+            payment.status = 1  # Completed
+            payment.razorpay_payment_id = data['razorpay_payment_id']
+            payment.payment_date = timezone.now()
+            
+            # Generate PDF receipt
+            pdf_content = render_to_string('fee_management/receipt_template.html', {'payment': payment})
+            pdf_file = pdfkit.from_string(pdf_content, False)
+            payment.receipt.save(f'receipt_{payment.transaction_id}.pdf', ContentFile(pdf_file))
+            payment.save()
+            
+            # Log transaction
+            TransactionLog.objects.create(
+                transaction_id=payment.transaction_id,
+                student=payment.student,
+                amount=payment.total_amount,
+                status=1,
+                details=str(data)
+            )
+            
+            # Send confirmation email
+            try:
+                send_mail(
+                    'Payment Successful',
+                    f'Your payment of {payment.total_amount} has been received successfully.',
+                    settings.DEFAULT_FROM_EMAIL,
+                    [payment.student.email],
+                    fail_silently=True
+                )
+                logger.info(f"Payment {payment.transaction_id} completed for {payment.student}")
+            except Exception as e:
+                logger.error(f"Failed to send confirmation email for payment {payment.id}: {str(e)}")
+        
+        return Response(status=status.HTTP_200_OK)
